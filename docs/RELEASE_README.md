@@ -32,6 +32,8 @@ Ethernet достаточен: Wi-Fi и доступ в Интернет для 
 ## Документация
 
 - [Запуск готовых клиентов](docs/PORTABLE.md)
+- [Как скачать сертификат через CMD или PowerShell](docs/PORTABLE.md#получение-сертификата-в-первый-раз)
+- [План улучшений и хранение новых сборок](docs/IMPROVEMENTS.md)
 - [Выпуск и оставшиеся проверки](docs/RELEASE_STATUS.md)
 - [Установка сервера](docs/SERVER_DEPLOYMENT.md)
 - [Пользователи и права](docs/USERS.md)
