@@ -1,0 +1,40 @@
+#pragma once
+
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace encoder {
+
+struct UserRecord {
+  std::string username;
+  std::string salt_hex;
+  std::string hash_hex;
+  bool blocked = false;
+  unsigned permissions = 3; // bit 0: encrypt, bit 1: decrypt
+};
+
+class UserStore {
+ public:
+  bool load(const std::string& path);
+  bool save(const std::string& path) const;
+
+  bool verify(const std::string& username, const std::string& password) const;
+  bool upsert(const std::string& username, const std::string& password);
+  bool exists(const std::string& username) const;
+  bool set_blocked(const std::string& username, bool blocked);
+  bool set_permissions(const std::string& username, unsigned permissions);
+  unsigned permissions(const std::string& username) const;
+  std::vector<std::pair<std::string, bool>> list() const;
+  static bool valid_username(const std::string& username);
+
+ private:
+  static std::string pbkdf2_hash(const std::string& password,
+                                const std::string& salt_hex,
+                                int iterations);
+  static std::string random_salt_hex(size_t bytes);
+
+  std::unordered_map<std::string, UserRecord> users_;
+};
+
+} // namespace encoder

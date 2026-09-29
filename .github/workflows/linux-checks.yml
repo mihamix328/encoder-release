@@ -1,0 +1,61 @@
+name: Linux checks
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ libssl-dev openssl python3-yaml netplan.io
+      - name: Configure isolated server tests
+        run: >-
+          cmake -S . -B build/ci-linux -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_SERVER=ON -DBUILD_CLIENT=OFF -DBUILD_ADMIN=OFF
+          -DBUILD_GUI=OFF -DBUILD_UI_TESTS=ON
+      - name: Build
+        run: cmake --build build/ci-linux --parallel 2
+      - name: Test recovery, file isolation and mock sockets
+        run: ctest --test-dir build/ci-linux --output-on-failure --timeout 45
+      - name: Stage fresh installation without changing host
+        run: /usr/bin/python3 -B server/tests/server_stage_checks.py build/ci-linux
+      - name: Repeat process and recovery checks to catch timing races
+        run: >-
+          ctest --test-dir build/ci-linux
+          -R '^(wifi-managed-backend|wifi-recovery-supervisor|wifi-bounded-process)$'
+          --repeat until-fail:5 --output-on-failure --timeout 45
+      - name: Check generated YAML with an independent parser
+        run: /usr/bin/python3 common/tests/wifi_config_yaml_check.py build/ci-linux/common/encoder-wifi-config-tests
+      - name: Validate Netplan in a temporary root without applying networking
+        run: /usr/bin/python3 server/tests/netplan_generate_check.py --fixtures build/ci-linux/common/encoder-wifi-config-tests
+      - name: Refuse conflicting or unsafe Netplan configuration
+        run: /usr/bin/python3 -B server/tests/netplan_preflight_checks.py build/ci-linux/common/encoder-wifi-config-tests
+      - name: Run real read-only preflight through the bounded helper
+        run: build/ci-linux/server/encoder-wifi-preflight-process-tests "$GITHUB_WORKSPACE/server/tools/netplan_preflight.py"
+      - name: Verify experimental WPA2 startup policy offline
+        run: >-
+          /usr/bin/python3 -B server/tests/wifi_policy_unit_check.py
+          --fixtures build/ci-linux/common/encoder-wifi-config-tests
+          --dropin deploy/experimental/netplan-wpa-wlan0.service.d/90-encoder-policy.conf
+          --supervisor-unit deploy/experimental/encoder-wifi-recovery.service
+      - name: Test TLS protocol with a temporary local server
+        run: /usr/bin/python3 server/tests/admin_protocol.py --server build/ci-linux/server/encoder-server --openssl /usr/bin/openssl

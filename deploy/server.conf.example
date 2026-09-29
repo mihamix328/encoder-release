@@ -1,0 +1,20 @@
+# Copy to /etc/encoder/server.conf and set a unique secret admin token locally.
+listen_host=0.0.0.0
+listen_port=7443
+admin_host=0.0.0.0
+admin_port=7444
+admin_token=CHANGE_ME
+cert_file=/etc/encoder/certs/server.crt
+key_file=/etc/encoder/certs/server.key
+storage_dir=/var/lib/encoder
+require_client_cert=false
+wifi_read_enabled=false
+wifi_snapshot_file=/run/encoder-network/wifi.txt
+wifi_scan_enabled=false
+wifi_change_enabled=false
+wifi_scan_socket=/run/encoder-wifi-scan.sock
+# GOST requires a server built with ENCODER_NATIVE_GOST=ON and libakrypt.
+# Legacy CLI backend paths are no longer used for encryption/decryption.
+max_header_bytes=65536
+max_file_bytes=104857600
+client_binding_enabled=false
