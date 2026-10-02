@@ -101,6 +101,7 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
   }
 
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  int last_error = 0;
   for (addrinfo* rp = result; rp != nullptr; rp = rp->ai_next) {
     const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
     if (remaining <= 0) break;
@@ -120,6 +121,7 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
     if (flags < 0 || sock >= FD_SETSIZE || fcntl(sock, F_SETFL, flags | O_NONBLOCK) != 0) { ::close(sock); continue; }
     const int rc = ::connect(sock, rp->ai_addr, static_cast<int>(rp->ai_addrlen));
     const bool pending = rc != 0 && errno == EINPROGRESS;
+    if (rc != 0 && !pending) last_error = errno;
 #endif
     bool connected = rc == 0;
     if (pending) {
@@ -139,6 +141,7 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
       int socket_error = 0;
       connected = ready > 0 && getsockopt(sock, SOL_SOCKET, SO_ERROR,
           reinterpret_cast<char*>(&socket_error), &length) == 0 && socket_error == 0;
+      if (socket_error) last_error = socket_error;
     }
 #if defined(_WIN32)
     mode = 0;
@@ -165,7 +168,13 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
   }
 
   freeaddrinfo(result);
-  if (err) *err = "Unable to connect";
+  if (err) {
+    *err = "Unable to connect";
+#if defined(__APPLE__)
+    if (last_error == EPERM || last_error == EACCES)
+      *err += ": macOS denied network access; allow Local Network access in Privacy & Security";
+#endif
+  }
   return false;
 }
 

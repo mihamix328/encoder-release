@@ -3,6 +3,7 @@
 #include "../../common/gui_paths.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QPushButton>
@@ -755,6 +756,8 @@ void AdminWindow::renderPatternAnalysis(const std::vector<std::string>& logs,
 }
 
 void AdminWindow::onAutoRefresh() {
+  // A synchronous dashboard refresh must not block Wi-Fi confirmation dialogs.
+  if (QApplication::activeModalWidget()) return;
   onRefreshAlerts();
   onRefreshBinding();
   onRefreshLogs();
