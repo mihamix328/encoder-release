@@ -44,8 +44,8 @@ int main() {
   fake.join(); check(commands_ok, "only fixed STATUS commands sent");
   close(fd); unlink(path.c_str());
   bool called = false;
-  check(probe_wifi_target_with(*target, path, [&](auto*, auto*) { called = true; return true; }, &message) == WifiLink::Failed && !called,
-        "missing socket fails without consuming stale address data");
+  check(probe_wifi_target_with(*target, path, [&](auto*, auto*) { called = true; return true; }, &message) == WifiLink::Pending && !called,
+        "startup without control socket waits without consuming stale address data or permitting confirmation");
   check(!rmdir(temporary), "fixture removed");
   std::cout << "Fresh target probe passed with mock supplicant and interface reader\n";
 }

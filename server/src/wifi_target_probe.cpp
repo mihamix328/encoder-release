@@ -31,7 +31,13 @@ WifiLink probe_wifi_target_with(const WifiProfile& target, const std::string& tr
   if (target.psk().size() != 32 || target.ssid_hex().empty()) return fail("Invalid or consumed target profile");
   std::string status, error;
   // Never inspect the cached snapshot used by the UI for a commit decision.
-  if (!wifi_connection_status(trusted_socket, &status, &error)) return fail("Fresh Wi-Fi status unavailable");
+  // systemctl restart returns before supplicant has created its control socket.
+  // Missing live status cannot authorize a commit, but is not an authentication
+  // failure. The transaction's independent deadline still bounds this wait.
+  if (!wifi_connection_status(trusted_socket, &status, &error)) {
+    if (message) *message = "Waiting for fresh Wi-Fi status";
+    return WifiLink::Pending;
+  }
   std::vector<std::string> addresses;
   try {
     if (!read_addresses(&addresses, &error)) return fail("Fresh Wi-Fi addresses unavailable");
