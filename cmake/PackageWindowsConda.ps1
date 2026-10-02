@@ -30,6 +30,12 @@ foreach ($record in Get-ChildItem "$prefix/conda-meta" -Filter '*.json') {
         throw "Missing upstream license notices for $($metadata.name)"
     }
 }
+$freeTypeNotices = Join-Path $PSScriptRoot 'licenses/freetype'
+foreach ($notice in Get-ChildItem $freeTypeNotices -File) {
+    $folder = Join-Path "$stage/share" "freetype/$($notice.Name)"
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    Copy-Item $notice.FullName (Join-Path $folder 'copyright')
+}
 $crt = Join-Path $prefix 'Library/bin'
 if (!(Test-Path (Join-Path $crt 'vcruntime140.dll'))) {
     $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
