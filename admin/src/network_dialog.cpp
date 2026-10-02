@@ -5,6 +5,8 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QGridLayout>
+#include <QTabWidget>
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QLineEdit>
@@ -16,16 +18,20 @@
 NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* parent,
                              std::function<WifiConnectRequest()> connect_factory) : QDialog(parent) {
   setWindowTitle("Сеть платы — " + name);
-  resize(680, 380);
+  resize(940, 680);
+  setMinimumSize(680, 500);
   auto* layout = new QVBoxLayout(this);
-  auto* explanation = new QLabel("Интерфейсы с IPv4. Carrier — наличие связи, не проверка Интернета.\n"
-      "Сохранённый список — кэш; поиск запускается отдельно. Смена сети — в отдельном окне подключения.", this);
+  layout->setContentsMargins(18, 18, 18, 18);
+  layout->setSpacing(10);
+  auto* explanation = new QLabel("Выберите сеть в списке или обновите данные платы.", this);
+  explanation->setToolTip("Carrier — наличие связи, не проверка Интернета. Сохранённый список — кэш; поиск запускается отдельно.");
   explanation->setWordWrap(true);
   layout->addWidget(explanation);
   auto* view = new QPlainTextEdit(this);
   view->setObjectName("networkResult");
   view->setReadOnly(true);
-  layout->addWidget(view);
+  auto* results = new QTabWidget(this);
+  results->addTab(view, "IP и интерфейсы");
   auto* status = new QLabel(this);
   status->setObjectName("networkStatus");
   status->setTextFormat(Qt::PlainText);
@@ -46,16 +52,24 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
   connection->setObjectName("wifiConnection");
   connection->setTextFormat(Qt::PlainText);
   connection->setWordWrap(true);
+  connection->hide();
   layout->addWidget(connection);
   auto* networks = new QTableWidget(0, 5, this);
   networks->setObjectName("wifiNetworks");
   networks->setHorizontalHeaderLabels({"Сеть (SSID)", "Сигнал*", "МГц", "Защита", "BSSID"});
   networks->setEditTriggers(QAbstractItemView::NoEditTriggers);
   networks->setSelectionBehavior(QAbstractItemView::SelectRows);
-  networks->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+  networks->verticalHeader()->hide();
+  networks->verticalHeader()->setDefaultSectionSize(32);
+  networks->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
   networks->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-  networks->hide();
-  layout->addWidget(networks, 1);
+  networks->setColumnWidth(1, 70);
+  networks->setColumnWidth(2, 60);
+  networks->setColumnWidth(3, 180);
+  networks->setColumnWidth(4, 145);
+  networks->setMinimumHeight(160);
+  results->addTab(networks, "Сети Wi-Fi");
+  layout->addWidget(results, 1);
   auto apply_filter = [=]() {
     const QString needle = filter->text().trimmed();
     for (int row = 0; row < networks->rowCount(); ++row) {
@@ -66,22 +80,30 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
   };
   connect(filter, &QLineEdit::textChanged, this, [=]() { apply_filter(); });
   connect(networks->model(), &QAbstractItemModel::layoutChanged, this, [=]() { apply_filter(); });
-  auto* refresh = new QPushButton("Обновить IP и интерфейсы", this);
+  auto* refresh = new QPushButton("IP и интерфейсы", this);
   refresh->setObjectName("refreshNetwork");
-  auto* wifi = new QPushButton("Wi-Fi: прочитать сохранённый список", this);
+  auto* wifi = new QPushButton("Последний список Wi-Fi", this);
   wifi->setObjectName("refreshWifi");
-  layout->addWidget(refresh);
-  layout->addWidget(wifi);
-  auto* current = new QPushButton("Текущее подключение Wi-Fi", this);
+  auto* actions = new QGridLayout();
+  actions->setHorizontalSpacing(10);
+  actions->setVerticalSpacing(8);
+  actions->setColumnStretch(0, 1);
+  actions->setColumnStretch(1, 1);
+  actions->addWidget(refresh, 0, 0);
+  actions->addWidget(wifi, 0, 1);
+  auto* current = new QPushButton("Текущее подключение", this);
   current->setObjectName("refreshWifiStatus");
-  layout->addWidget(current);
-  auto* scan = new QPushButton("Wi-Fi: найти доступные сети", this);
+  actions->addWidget(current, 1, 0);
+  auto* scan = new QPushButton("Найти сети Wi-Fi", this);
   scan->setObjectName("scanWifi");
   scan->setToolTip("Нужен новый сервер с разрешённым поиском. Одна попытка за 30 секунд.");
-  layout->addWidget(scan);
+  actions->addWidget(scan, 1, 1);
   auto* configure = new QPushButton("Подключение к Wi-Fi…", this);
   configure->setObjectName("configureWifi");
-  layout->addWidget(configure);
+  actions->addWidget(configure, 2, 0);
+  for (auto* button : {refresh, wifi, current, scan})
+    button->setProperty("secondaryAction", true);
+  layout->addLayout(actions);
   connect(configure, &QPushButton::clicked, this, [=] {
     QString ssid;
     const int row = networks->currentRow();
@@ -95,8 +117,9 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
     dialog.exec();
   });
   auto* close = new QDialogButtonBox(QDialogButtonBox::Close, this);
+  close->button(QDialogButtonBox::Close)->setText("Закрыть");
   connect(close, &QDialogButtonBox::rejected, this, &QDialog::reject);
-  layout->addWidget(close);
+  actions->addWidget(close, 2, 1);
   struct Result {
     std::atomic<bool> done{false};
     bool ok = false;
@@ -139,8 +162,10 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
           "\nПредыдущие данные сохранены; они могут быть устаревшими.");
     if (state->pending->ok && scan_result)
       status->setText("Получено событие завершения поиска. Список обновлён в " + QDateTime::currentDateTime().toString("HH:mm:ss"));
-    if (state->pending->ok && state->pending->operation == "admin_network_status")
+    if (state->pending->ok && state->pending->operation == "admin_network_status") {
       view->setPlainText(QString::fromStdString(state->pending->text));
+      results->setCurrentWidget(view);
+    }
     if (state->pending->ok && state->pending->operation == "admin_wifi_status") {
       QString details = "Состояние на момент снимка (не проверка Интернета):\n";
       for (const auto& line : QString::fromStdString(state->pending->text).split('\n')) {
@@ -156,6 +181,7 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
         else if (key == "ip_address") details += "IP: " + value + "\n";
       }
       connection->setText(details);
+      connection->show();
     }
     if (state->pending->ok && wifi_result) {
       const auto lines = QString::fromStdString(state->pending->text).split('\n');
@@ -182,15 +208,15 @@ NetworkDialog::NetworkDialog(const QString& name, Request request, QWidget* pare
         networks->item(row, 0)->setData(Qt::UserRole, fields[4]);
         networks->item(row, 2)->setData(Qt::DisplayRole, frequency);
       }
-      summary->setText((scan_result ? QString("После поиска: ") : QString("Сохранённый список: ")) + QString::number(networks->rowCount()) +
-          " сетей. Список может быть неполным; сохранённые записи могут быть устаревшими.\n"
-          "*Сигнал указан в формате драйвера. Экранирование SSID сохранено.\n" +
-          (skipped ? "Пропущено строк (формат или лимит 512): " + QString::number(skipped) : QString()));
+      summary->setText((scan_result ? QString("После поиска: ") : QString("Последний список: ")) + QString::number(networks->rowCount()) +
+          " сетей." + (skipped ? " Пропущено строк: " + QString::number(skipped) : QString()));
+      summary->setToolTip("Список может быть неполным; сохранённые записи могут быть устаревшими.\n"
+          "Сигнал указан в формате драйвера. Экранирование SSID сохранено. Лимит — 512 сетей.");
       networks->setSortingEnabled(true);
       networks->sortItems(1, Qt::DescendingOrder);
       apply_filter();
       filter->show();
-      networks->show();
+      results->setCurrentWidget(networks);
     }
     state->pending.reset();
     refresh->setEnabled(true);

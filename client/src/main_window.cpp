@@ -161,14 +161,14 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
   auto* central = new QWidget(this);
   auto* layout = new QVBoxLayout(central);
   layout->setContentsMargins(18, 18, 18, 18);
-  layout->setSpacing(14);
+  layout->setSpacing(10);
 
   auto* header = new QWidget(central);
   auto* header_layout = new QVBoxLayout(header);
   header_layout->setContentsMargins(0, 0, 0, 0);
-  auto* title = new QLabel("Управление конфигурациями шифрования", header);
+  auto* title = new QLabel("Шифрование файлов", header);
   title->setObjectName("headerTitle");
-  auto* subtitle = new QLabel("Зашифрованные файлы на жестком диске, а расшифрованные в оперативной памяти", header);
+  auto* subtitle = new QLabel("Выберите файлы и параметры обработки. Расшифрованные файлы доступны в списке справа.", header);
   subtitle->setObjectName("headerSub");
   subtitle->setWordWrap(true);
   header_layout->addWidget(title);
@@ -192,16 +192,17 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
   auto* files_box = new QGroupBox("Выбранные файлы", central);
   auto* files_layout = new QVBoxLayout(files_box);
   file_list_ = new QListWidget(files_box);
+  file_list_->setMinimumHeight(160);
   file_list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
   auto* select_btn = new QPushButton("Выбрать файлы", files_box);
   select_btn->setObjectName("secondary");
   connect(select_btn, &QPushButton::clicked, this, &MainWindow::onSelectFiles);
-  files_layout->addWidget(file_list_);
-  files_layout->addWidget(select_btn);
+  files_layout->addWidget(file_list_, 1);
+  files_layout->addWidget(select_btn, 0, Qt::AlignLeft);
 
-  auto* encrypt_box = new QGroupBox("Шифрование", central);
+  auto* encrypt_box = new QGroupBox("Параметры обработки", central);
   auto* encrypt_layout = new QGridLayout(encrypt_box);
-  encrypt_layout->setSpacing(12);
+  encrypt_layout->setSpacing(8);
   encrypt_layout->setColumnStretch(1, 1);
   encrypt_layout->setColumnStretch(3, 1);
 
@@ -284,7 +285,7 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
   for (auto* combo : {cipher_combo_, gost_mode_combo_, hash_combo_, key_storage_combo_}) {
     combo->setMaxVisibleItems(10);
     combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    combo->setMinimumContentsLength(16);
+    combo->setMinimumContentsLength(12);
     combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   }
   encrypt_layout->addWidget(new QLabel("Алгоритм:", encrypt_box), 0, 0);
@@ -350,18 +351,15 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
           this, [update_gost_mode_visibility](int) { update_gost_mode_visibility(); });
   update_gost_mode_visibility();
 
-  auto* decrypt_box = new QGroupBox("Расшифрование", central);
-  auto* decrypt_layout = new QHBoxLayout(decrypt_box);
-  decrypt_layout->setSpacing(12);
-  temp_checkbox_ = new QCheckBox("Расшифровывать во временный файл (авто-очистка)", decrypt_box);
+  temp_checkbox_ = new QCheckBox("Расшифровывать во временный файл (авто-очистка)", encrypt_box);
   temp_checkbox_->setChecked(config.decrypt_to_temp);
   connect(temp_checkbox_, &QCheckBox::toggled, this, [this](bool) {
     updateDecryptedActions();
   });
-  decrypt_layout->addWidget(temp_checkbox_);
+  encrypt_layout->addWidget(temp_checkbox_, 2, 0, 1, 4);
 
-  auto* actions_layout = new QHBoxLayout();
-  actions_layout->setSpacing(12);
+  auto* actions_layout = new QGridLayout();
+  actions_layout->setHorizontalSpacing(10);
   encrypt_btn_ = new QPushButton("Зашифровать", central);
   decrypt_btn_ = new QPushButton("Расшифровать", central);
   encrypt_btn_->setEnabled((config.permissions & 1) != 0);
@@ -376,16 +374,16 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
   connect(decrypt_btn_, &QPushButton::clicked, this, &MainWindow::onDecrypt);
   connect(terminate_btn_, &QPushButton::clicked, this, &MainWindow::onTerminate);
 
-  actions_layout->addWidget(encrypt_btn_);
-  actions_layout->addWidget(decrypt_btn_);
-  actions_layout->addWidget(terminate_btn_);
+  actions_layout->addWidget(encrypt_btn_, 0, 0);
+  actions_layout->addWidget(decrypt_btn_, 0, 1);
 
-  auto* decrypted_box = new QGroupBox("Расшифрованные файлы в ОП", central);
+  auto* decrypted_box = new QGroupBox("Расшифрованные файлы", central);
   auto* decrypted_layout = new QVBoxLayout(decrypted_box);
   decrypted_list_ = new QListWidget(decrypted_box);
-  decrypted_layout->addWidget(decrypted_list_);
-  auto* decrypted_actions = new QHBoxLayout();
-  decrypted_actions->setSpacing(12);
+  decrypted_list_->setMinimumHeight(160);
+  decrypted_layout->addWidget(decrypted_list_, 1);
+  auto* decrypted_actions = new QGridLayout();
+  decrypted_actions->setSpacing(8);
   preview_btn_ = new QPushButton("Просмотр", decrypted_box);
   preview_btn_->setEnabled(false);
   preview_btn_->setObjectName("secondary");
@@ -397,19 +395,21 @@ MainWindow::MainWindow(const encoder::ClientConfig& config,
   connect(decrypted_list_, &QListWidget::currentRowChanged, this, [this](int) {
     updateDecryptedActions();
   });
-  decrypted_actions->addWidget(preview_btn_);
-  decrypted_actions->addWidget(copy_temp_btn_);
-  decrypted_actions->addStretch();
+  decrypted_actions->addWidget(preview_btn_, 0, 0);
+  decrypted_actions->addWidget(copy_temp_btn_, 0, 1);
+  decrypted_actions->addWidget(terminate_btn_, 1, 0, 1, 2);
   decrypted_layout->addLayout(decrypted_actions);
 
   status_label_ = new QLabel("Готово", central);
   status_label_->setVisible(false);
 
-  layout->addWidget(files_box);
+  auto* file_panels = new QHBoxLayout();
+  file_panels->setSpacing(14);
+  file_panels->addWidget(files_box, 1);
+  file_panels->addWidget(decrypted_box, 1);
+  layout->addLayout(file_panels, 1);
   layout->addWidget(encrypt_box);
-  layout->addWidget(decrypt_box);
   layout->addLayout(actions_layout);
-  layout->addWidget(decrypted_box);
   // status_label_ hidden for cleaner UI
 
   setCentralWidget(central);
