@@ -13,7 +13,8 @@ int main(int argc, char** argv) {
     if (!encoder::wifi_netplan_preflight(runner, &error) ||
         !encoder::prepare_wifi_runtime_policy("/etc/netplan", "/run/encoder-wifi-policy",
           std::string(argv[1]) == "--check", &error)) {
-      std::cerr << "Wi-Fi runtime policy preparation refused\n"; return 1;
+      // These helpers return fixed diagnostics, never configuration contents.
+      std::cerr << "Wi-Fi runtime policy preparation refused: " << error << '\n'; return 1;
     }
     std::cout << "Wi-Fi policy preparation succeeded; no network service was started\n";
     return 0;

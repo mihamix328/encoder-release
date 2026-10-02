@@ -1,5 +1,6 @@
 #include "admin_window.h"
 #include "network_dialog.h"
+#include "../../common/gui_paths.h"
 
 #include <QAction>
 #include <QDialog>
@@ -30,7 +31,7 @@
 namespace {
 
 std::string devicesPath() {
-  return (QCoreApplication::applicationDirPath() + "/config/admin_devices.conf").toStdString();
+  return encoder::guiConfigDirectory("admin").filePath("admin_devices.conf").toStdString();
 }
 
 struct PatternStat {
@@ -343,9 +344,13 @@ void AdminWindow::onManageUsers() {
 }
 
 void AdminWindow::saveDevices() {
-  QDir().mkpath(QCoreApplication::applicationDirPath() + "/config");
+  QDir().mkpath(encoder::guiConfigDirectory("admin").absolutePath());
   std::ofstream out(devicesPath(), std::ios::trunc);
   if (!out) return;
+#if defined(Q_OS_MACOS)
+  QFile::setPermissions(QString::fromStdString(devicesPath()),
+                        QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+#endif
   for (const auto& d : devices_) {
     out << d.name << "|" << d.host << "|" << d.port << "|" << d.token << "\n";
   }
@@ -372,7 +377,7 @@ void AdminWindow::onAddDevice() {
   bool ok = false;
   QString name = QInputDialog::getText(this, "Добавить устройство", "Имя:", QLineEdit::Normal, "", &ok);
   if (!ok || name.isEmpty()) return;
-  QString host = QInputDialog::getText(this, "Добавить устройство", "Хост:", QLineEdit::Normal, "127.0.0.1", &ok);
+  QString host = QInputDialog::getText(this, "Добавить устройство", "Хост:", QLineEdit::Normal, "orangepi3b.local", &ok);
   if (!ok || host.isEmpty()) return;
   int port = QInputDialog::getInt(this, "Добавить устройство", "Порт:", 7444, 1, 65535, 1, &ok);
   if (!ok) return;

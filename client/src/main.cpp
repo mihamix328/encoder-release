@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include "../../common/gui_theme.h"
+#include "../../common/gui_paths.h"
 #include <QIcon>
 #include <QMessageBox>
 #include <QSettings>
@@ -51,10 +52,10 @@ int main(int argc, char** argv) {
   encoder::applyDarkTheme(app);
 
   namespace fs = std::filesystem;
-  fs::path exe_path = fs::absolute(argv[0]);
+  fs::path exe_path = fs::u8path(QCoreApplication::applicationFilePath().toStdString());
 
   encoder::Config config;
-  std::string config_path = (exe_path.parent_path() / "config" / "client.conf").string();
+  std::string config_path = encoder::guiConfigDirectory("client").filePath("client.conf").toStdString();
   bool loaded = config.load(config_path);
   if (!loaded) {
     std::vector<fs::path> candidates = {

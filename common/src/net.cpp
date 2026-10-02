@@ -39,7 +39,12 @@ NetInit::~NetInit() {
 
 Socket::Socket() : handle_(static_cast<Handle>(-1)) {}
 
-Socket::Socket(Handle handle) : handle_(handle) {}
+Socket::Socket(Handle handle) : handle_(handle) {
+#if defined(__APPLE__)
+  const int enabled = 1;
+  if (valid()) setsockopt(handle_, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#endif
+}
 
 Socket::Socket(Socket&& other) noexcept {
   handle_ = other.handle_;
@@ -121,7 +126,9 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
       fd_set writable, failed;
       FD_ZERO(&writable); FD_ZERO(&failed);
       FD_SET(sock, &writable); FD_SET(sock, &failed);
-      timeval wait{static_cast<long>(remaining / 1000), static_cast<long>((remaining % 1000) * 1000)};
+      timeval wait{};
+      wait.tv_sec = static_cast<decltype(wait.tv_sec)>(remaining / 1000);
+      wait.tv_usec = static_cast<decltype(wait.tv_usec)>((remaining % 1000) * 1000);
 #if defined(_WIN32)
       const int ready = select(0, nullptr, &writable, &failed, &wait);
       int length = sizeof(int);
@@ -141,6 +148,12 @@ bool Socket::connect_to(const std::string& host, int port, std::string* err, int
 #endif
     if (connected) {
       handle_ = sock;
+#if defined(__APPLE__)
+      // OpenSSL also writes to this socket. A disconnected server must return
+      // an error instead of terminating the application with SIGPIPE.
+      const int enabled = 1;
+      setsockopt(handle_, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#endif
       freeaddrinfo(result);
       return true;
     }

@@ -29,20 +29,45 @@ bool read_packet(int fd, std::string* text, int timeout) {
 namespace encoder {
 bool wifi_change_recovery_connection(const Socket& socket) {
 #ifdef __linux__
-  sockaddr_in local{}, remote{}; socklen_t size = sizeof(local);
-  if (getsockname(socket.native(), reinterpret_cast<sockaddr*>(&local), &size) || local.sin_family != AF_INET) return false;
+  sockaddr_storage local{}, remote{}; socklen_t size = sizeof(local);
+  if (getsockname(socket.native(), reinterpret_cast<sockaddr*>(&local), &size)) return false;
   size = sizeof(remote);
-  if (getpeername(socket.native(), reinterpret_cast<sockaddr*>(&remote), &size) || remote.sin_family != AF_INET) return false;
+  if (getpeername(socket.native(), reinterpret_cast<sockaddr*>(&remote), &size)) return false;
+  // Dual-stack listeners return IPv4-mapped IPv6 addresses for IPv4 peers.
+  auto ipv4 = [](const sockaddr_storage& value, in_addr* address) {
+    if (value.ss_family == AF_INET) {
+      *address = reinterpret_cast<const sockaddr_in*>(&value)->sin_addr; return true;
+    }
+    if (value.ss_family == AF_INET6) {
+      const auto& addr = reinterpret_cast<const sockaddr_in6*>(&value)->sin6_addr;
+      if (IN6_IS_ADDR_V4MAPPED(&addr)) { std::memcpy(address, &addr.s6_addr[12], sizeof(*address)); return true; }
+    }
+    return false;
+  };
+  in_addr local4{}, remote4{};
+  const bool v4 = ipv4(local, &local4) && ipv4(remote, &remote4);
   ifaddrs* interfaces = nullptr;
   if (getifaddrs(&interfaces)) return false;
   bool ok = false;
   for (auto* p = interfaces; p; p = p->ifa_next) {
-    if (!p->ifa_addr || !p->ifa_netmask || std::string(p->ifa_name) != "end1" ||
-        p->ifa_addr->sa_family != AF_INET || !(p->ifa_flags & IFF_UP) || !(p->ifa_flags & IFF_RUNNING)) continue;
-    const auto addr = reinterpret_cast<sockaddr_in*>(p->ifa_addr)->sin_addr.s_addr;
-    const auto mask = reinterpret_cast<sockaddr_in*>(p->ifa_netmask)->sin_addr.s_addr;
-    ok = addr == local.sin_addr.s_addr && mask != 0 &&
-        (remote.sin_addr.s_addr & mask) == (addr & mask) && remote.sin_addr.s_addr != addr;
+    if (!p->ifa_addr || !p->ifa_netmask || !p->ifa_name || std::string(p->ifa_name) != "end1" ||
+        !(p->ifa_flags & IFF_UP) || !(p->ifa_flags & IFF_RUNNING)) continue;
+    if (v4 && p->ifa_addr->sa_family == AF_INET) {
+      const auto addr = reinterpret_cast<sockaddr_in*>(p->ifa_addr)->sin_addr.s_addr;
+      const auto mask = reinterpret_cast<sockaddr_in*>(p->ifa_netmask)->sin_addr.s_addr;
+      ok = addr == local4.s_addr && mask != 0 &&
+          (remote4.s_addr & mask) == (addr & mask) && remote4.s_addr != addr;
+    } else if (local.ss_family == AF_INET6 && remote.ss_family == AF_INET6 && p->ifa_addr->sa_family == AF_INET6) {
+      const auto* own = reinterpret_cast<const sockaddr_in6*>(p->ifa_addr);
+      const auto* destination = reinterpret_cast<const sockaddr_in6*>(&local);
+      const auto* source = reinterpret_cast<const sockaddr_in6*>(&remote);
+      const auto index = if_nametoindex("end1");
+      // Only scoped link-local peers on the physical recovery interface qualify.
+      ok = index && IN6_IS_ADDR_LINKLOCAL(&own->sin6_addr) && IN6_IS_ADDR_LINKLOCAL(&source->sin6_addr) &&
+          destination->sin6_scope_id == index && source->sin6_scope_id == index &&
+          !std::memcmp(&own->sin6_addr, &destination->sin6_addr, sizeof(in6_addr)) &&
+          std::memcmp(&own->sin6_addr, &source->sin6_addr, sizeof(in6_addr));
+    }
     if (ok) break;
   }
   freeifaddrs(interfaces); return ok;

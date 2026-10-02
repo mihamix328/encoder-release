@@ -20,6 +20,12 @@ target_include_directories(encoder-admin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 
 target_link_libraries(encoder-admin PRIVATE encoder_common Qt6::Widgets)
 
+if(APPLE)
+  include(${PROJECT_SOURCE_DIR}/cmake/MacBundle.cmake)
+  encoder_mac_bundle(encoder-admin "Encoder Admin" "admin")
+  install(TARGETS encoder-admin BUNDLE DESTINATION .)
+endif()
+
 if(BUILD_UI_TESTS)
   # Manual hardware integration check; never automatically invoked by CTest.
   add_executable(encoder-admin-live-check tests/network_live_check.cpp src/network_dialog.cpp src/wifi_connect_dialog.cpp src/admin_client.cpp)

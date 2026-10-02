@@ -1,0 +1,32 @@
+КАКУЮ ИНСТРУКЦИЮ ОТКРЫТЬ
+
+Найдите нужную тему и откройте указанный файл в этой папке.
+
+
+ЗАПУСК И ПОДКЛЮЧЕНИЕ
+
+MACOS.md — Клиенты macOS
+PORTABLE.md — Клиенты Windows
+CONNECTION.md — Подключение клиента
+DIRECT_LINK.md — Прямой кабель
+USERS.md — Управление пользователями
+NETWORK.md — Настройка сети
+SERVER_DEPLOYMENT.md — Установка сервера
+
+
+ТЕХНИЧЕСКИЕ ИНСТРУКЦИИ
+
+BUILD_RELEASE.md — Сборка приложений
+windows_installer.md — Установщик Windows
+GOST_NATIVE.md — Шифрование ГОСТ
+LEGACY_GOST_RECOVERY.md — Восстановление файлов
+WIFI_CONNECTION.md — Разработка Wi-Fi
+
+
+О ПРОЕКТЕ И ВЫПУСКЕ
+
+RELEASE_README.md — Обзор проекта
+RELEASE_STATUS.md — Статус выпуска
+IMPROVEMENTS.md — План улучшений
+RELEASE_NETWORK.md — Сеть выпуска
+RELEASE_SERVER.md — Сервер выпуска

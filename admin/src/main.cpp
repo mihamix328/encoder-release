@@ -6,13 +6,14 @@
 #include <QDir>
 #include <QFileInfo>
 #include "../../common/gui_theme.h"
+#include "../../common/gui_paths.h"
 
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
   encoder::applyDarkTheme(app);
 
   encoder::Config config;
-  const QDir config_dir(QCoreApplication::applicationDirPath() + "/config");
+  const QDir config_dir = encoder::guiConfigDirectory("admin");
   config.load(config_dir.filePath("admin.conf").toStdString());
   auto resolve = [&config_dir](const std::string& value) {
     if (value.empty() || QFileInfo(QString::fromStdString(value)).isAbsolute()) return value;

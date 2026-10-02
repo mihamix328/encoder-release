@@ -39,6 +39,7 @@ Ethernet достаточен: Wi-Fi и доступ в Интернет для 
 - [Пользователи и права](docs/USERS.md)
 - [ГОСТ-MGM и совместимость](docs/GOST_NATIVE.md)
 - [Сборка из исходников](docs/BUILD_RELEASE.md)
+- [Клиент и админ-панель для macOS](docs/MACOS.md)
 
 `client`, `admin`, `server` и `common` содержат исходники. Готовые ZIP публикуются
 отдельно в Releases, а не в каталоге build репозитория. Реальные сертификаты,

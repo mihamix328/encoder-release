@@ -30,6 +30,14 @@ int main() {
   check(client.connect_to("127.0.0.1", port, &error, 1000), "nonblocking connect completes");
   auto peer = listener.accept(&error);
   check(peer.valid(), "accept loopback client");
+#if defined(__APPLE__)
+  for (auto handle : {client.native(), peer.native()}) {
+    int enabled = 0;
+    socklen_t option_length = sizeof(enabled);
+    check(getsockopt(handle, SOL_SOCKET, SO_NOSIGPIPE, &enabled, &option_length) == 0 && enabled == 1,
+          "macOS sockets suppress SIGPIPE, including TLS writes");
+  }
+#endif
   uint8_t sent = 42, received = 0;
   check(client.write(&sent, 1) == 1 && peer.read(&received, 1) == 1 && received == sent, "send after restoring blocking mode");
   check(peer.write(&sent, 1) == 1 && client.read(&received, 1) == 1 && received == sent, "receive after restoring blocking mode");

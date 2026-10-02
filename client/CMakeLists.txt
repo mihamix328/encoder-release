@@ -23,7 +23,11 @@ if(BUILD_GUI)
   target_include_directories(encoder-client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
   target_link_libraries(encoder-client PRIVATE encoder_common Qt6::Widgets)
   target_compile_definitions(encoder-client PRIVATE ENCODER_GUI)
-  install(TARGETS encoder-client RUNTIME DESTINATION .)
+  if(APPLE)
+    include(${PROJECT_SOURCE_DIR}/cmake/MacBundle.cmake)
+    encoder_mac_bundle(encoder-client "Encoder" "client")
+  endif()
+  install(TARGETS encoder-client RUNTIME DESTINATION . BUNDLE DESTINATION .)
   if(BUILD_UI_TESTS)
     add_executable(encoder-ui-tests
       tests/ui_checks.cpp src/main_window.cpp src/main_window.h

@@ -148,6 +148,20 @@ bool TlsStream::connect(Socket&& socket, TlsContext& ctx, const std::string& hos
     return false;
   }
   SSL_set_fd(ssl_, static_cast<int>(socket_.native()));
+  if (host.empty() || host.find('\0') != std::string::npos) {
+    if (err) *err = "Invalid TLS server name";
+    close();
+    return false;
+  }
+  if (SSL_get_verify_mode(ssl_) & SSL_VERIFY_PEER) {
+    auto* parameters = SSL_get0_param(ssl_);
+    const bool ip = X509_VERIFY_PARAM_set1_ip_asc(parameters, host.c_str()) == 1;
+    if (!ip && X509_VERIFY_PARAM_set1_host(parameters, host.c_str(), host.size()) != 1) {
+      if (err) *err = "Failed to configure TLS server name verification";
+      close();
+      return false;
+    }
+  }
   SSL_set_tlsext_host_name(ssl_, host.c_str());
   int rc = SSL_connect(ssl_);
   if (rc != 1) {

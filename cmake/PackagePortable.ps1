@@ -50,7 +50,7 @@ foreach ($appName in @('client','admin')) {
     Copy-Item -LiteralPath $platform -Destination "$stage/platforms"
     New-Item -ItemType Directory -Path "$stage/licenses" | Out-Null
     foreach ($notice in $notices) {
-        $noticeName = $notice.Directory.Name + '-copyright.txt'
+        $noticeName = $notice.FullName.Substring((Join-Path $triplet 'share').Length).TrimStart('\','/').Replace('\','-').Replace('/','-') + '.txt'
         Copy-Item -LiteralPath $notice.FullName -Destination (Join-Path "$stage/licenses" $noticeName)
     }
     if ($appName -eq 'client') {

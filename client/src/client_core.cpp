@@ -16,6 +16,9 @@
 #include <cstring>
 #include <iostream>
 #include <algorithm>
+#if defined(__APPLE__)
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -193,6 +196,11 @@ bool extract_metadata_from_header(const Header& hdr,
 }
 
 std::string host_label() {
+#if defined(__APPLE__)
+  // Finder does not supply HOSTNAME in the application's environment.
+  char hostname[256]{};
+  if (gethostname(hostname, sizeof(hostname) - 1) == 0 && *hostname) return hostname;
+#endif
   const char* host = std::getenv("HOSTNAME");
 #if defined(_WIN32)
   if (!host || !*host) {

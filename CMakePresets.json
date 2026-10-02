@@ -20,6 +20,22 @@
         "BUILD_GUI": "ON",
         "BUILD_ADMIN": "ON"
       }
+    },
+    {
+      "name": "macos-arm64",
+      "displayName": "macOS Apple Silicon client and admin",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "BUILD_SERVER": "OFF",
+        "BUILD_CLIENT": "ON",
+        "BUILD_GUI": "ON",
+        "BUILD_ADMIN": "ON",
+        "BUILD_UI_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -27,6 +43,10 @@
       "name": "windows-client-release",
       "configurePreset": "windows-client",
       "configuration": "Release"
+    },
+    {
+      "name": "macos-arm64-release",
+      "configurePreset": "macos-arm64"
     }
   ]
 }
