@@ -16,7 +16,8 @@ Copy-Item $platform[0].FullName "$stage/Qt6/plugins/platforms"
 $cache = Join-Path (Split-Path (Split-Path $prefix -Parent) -Parent) 'pkgs'
 foreach ($record in Get-ChildItem "$prefix/conda-meta" -Filter '*.json') {
     $metadata = Get-Content $record.FullName -Raw | ConvertFrom-Json
-    $package = Join-Path $cache "$($metadata.name)-$($metadata.version)-$($metadata.build)"
+    $package = $metadata.link.source
+    if (!$package) { $package = Join-Path $cache "$($metadata.name)-$($metadata.version)-$($metadata.build)" }
     $licenses = Join-Path $package 'info/licenses'
     if (Test-Path $licenses) {
         foreach ($notice in Get-ChildItem $licenses -Recurse -File) {
@@ -39,11 +40,13 @@ if (!(Test-Path $crt)) { throw 'Visual C++ redistributable directory not found' 
 foreach ($name in @('client','admin')) {
     $folder = Join-Path $OutputDirectory "encoder-$name-windows-x64"
     $oldPath = $env:PATH
+    $oldPlugins = $env:QT_PLUGIN_PATH
     try {
         $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+        $env:QT_PLUGIN_PATH = $null
         $process = Start-Process (Join-Path $folder "encoder-$name.exe") -WorkingDirectory $folder -PassThru
         Start-Sleep -Seconds 5
         if ($process.HasExited) { throw "$name failed to launch (exit $($process.ExitCode))" }
         Stop-Process -Id $process.Id
-    } finally { $env:PATH = $oldPath }
+    } finally { $env:PATH = $oldPath; $env:QT_PLUGIN_PATH = $oldPlugins }
 }
