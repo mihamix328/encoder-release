@@ -30,11 +30,16 @@ foreach ($record in Get-ChildItem "$prefix/conda-meta" -Filter '*.json') {
         throw "Missing upstream license notices for $($metadata.name)"
     }
 }
-$vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
-$vs = & $vswhere -latest -products '*' -property installationPath
-$version = @(Get-ChildItem "$vs/VC/Redist/MSVC" -Directory | Sort-Object Name -Descending)[0].FullName
-$crt = Join-Path $version 'x64/Microsoft.VC143.CRT'
-if (!(Test-Path $crt)) { throw 'Visual C++ redistributable directory not found' }
+$crt = Join-Path $prefix 'Library/bin'
+if (!(Test-Path (Join-Path $crt 'vcruntime140.dll'))) {
+    $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+    $vs = & $vswhere -latest -products '*' -property installationPath
+    $runtime = @(Get-ChildItem "$vs/VC/Redist/MSVC" -Recurse -Filter vcruntime140.dll |
+        Where-Object { $_.FullName -match '[\\/]x64[\\/]Microsoft\.VC\d+\.CRT[\\/]' } |
+        Sort-Object FullName -Descending)[0]
+    if (!$runtime) { throw 'Visual C++ redistributable directory not found' }
+    $crt = $runtime.DirectoryName
+}
 & "$PSScriptRoot/PackagePortable.ps1" -BuildDirectory $BuildDirectory -VcpkgTripletDirectory $stage -VcRuntimeDirectory $crt -OutputDirectory $OutputDirectory -ServerHost orangepi3b.local
 # Verify the distributed executables start with only their bundled DLLs.
 foreach ($name in @('client','admin')) {
